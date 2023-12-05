@@ -15,7 +15,6 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 import ctypes
 import screeninfo
 import matplotlib.colors as mcol
-import matplotlib.cm as cm
 from libpysal.weights import lat2W
 from esda.moran import Moran
 
@@ -36,6 +35,10 @@ Umean = None
 first_run = True
 
 def run_gui():
+    """
+    This is the main function to instantiate and run the entire gui
+    :return:
+    """
     window = tk.Tk()
     window.title('VIPPIV')
     global piv_canvas
@@ -54,7 +57,11 @@ def run_gui():
     # Get the monitor's size
     width = int(current_screen.width/4)
     def video_stream(frame):
-
+        """
+        This function takes a video frame and displays this on the left display field
+        :param frame: A single frame from some video
+        :return:
+        """
         img = Image.fromarray(frame)
         max_width = width
 
@@ -66,7 +73,11 @@ def run_gui():
         display_left.configure(image=imgtk)
 
     def video_output(frame):
-
+        """
+        This function takes a video frame and displays this on the right output field
+        :param frame: A single frame from some video
+        :return:
+        """
         img = Image.fromarray(frame)
         max_width = width
 
@@ -78,7 +89,13 @@ def run_gui():
         display_right.configure(image=imgtk)
 
     def read_video():
-        #video_name = "videos/Videos for Bram/20230626_BARI_exp30_HNEC0153_day 18_elke tile 30sec.czi #01.avi"  # This is your video file path
+        """
+        Ask the user to provide a path to a video.
+        Open this video using cv2 and give the first frame to the display function.
+        If this function is called while a PIV analysis has been performed in the runtime, reset the GUI to the start
+        layout.
+        :return:
+        """
         global frames
         global frame_index
         global loaded_file
@@ -113,6 +130,11 @@ def run_gui():
         video_stream(frames[frame_index])
 
     def left():
+        """
+        This function is called when the button with the left arrow is called and when possible displays the previous
+        frame for some video
+        :return:
+        """
         global loaded_file
         global frame_index
 
@@ -128,6 +150,11 @@ def run_gui():
                 video_output(output_frame)
 
     def right():
+        """
+        This function is called when the button with the left arrow is called and when possible displays the next frame
+        for some video
+        :return:
+        """
         global loaded_file
         global frame_index
         global frames
@@ -145,6 +172,11 @@ def run_gui():
                 video_output(output_frame)
 
     def dilation_window():
+        """
+        When the user presses the dilation preprocessing button this function calles a subwindow asking for settings for
+        the dilation operation. These settings are then stored and displayed in the center of the GUI
+        :return:
+        """
         if len(frames) != 0:
             global actions_index
             global actions
@@ -177,6 +209,11 @@ def run_gui():
             submit_button.grid()
 
     def erosion_window():
+        """
+        When the user presses the erosion preprocessing button this function calles a subwindow asking for settings for
+        the erosion operation. These settings are then stored and displayed in the center of the GUI
+        :return:
+        """
         if len(frames) != 0:
             global actions_index
             global actions
@@ -212,6 +249,11 @@ def run_gui():
             submit_button.grid()
 
     def apply_mask_window():
+        """
+        When the user presses the apply mask preprocessing button this function the preprocssing step is stored and
+        displayed in the center window.
+        :return:
+        """
         if len(frames) != 0:
             global actions
             global actions_index
@@ -221,7 +263,11 @@ def run_gui():
             change_actions()
 
     def object_detector_window():
-
+        """
+        When the user presses the object detector preprocessing button this function calles a subwindow asking for settings for
+        the object detection operation. These settings are then stored and displayed in the center of the GUI
+        :return:
+        """
         if len(frames) != 0:
             global actions
             global actions_index
@@ -253,6 +299,12 @@ def run_gui():
             submit_button.grid()
 
     def change_actions():
+        """
+        This function is called whenever the user add a preprocessing step and stores and displays the steps with a
+        hidden unique ID in the central field
+
+        :return:
+        """
         action_field.config(state="normal")
 
         action_field.delete("1.0", "end")
@@ -280,6 +332,10 @@ def run_gui():
         settings_field.insert("1.0",output_settings)
 
     def save_manual_changes():
+        """
+        If the user makes a manual change and clicks this button the function is called to fully store the made changes
+        :return:
+        """
         if len(frames) != 0:
             settings = settings_field.get("1.0","end").split("\n")
 
@@ -294,6 +350,11 @@ def run_gui():
                     actions[key] = settings[i]
 
     def remove():
+        """
+        When this function is called a subwindow is called which allows the user to select the preprocessing steps to
+        remove from the pipeline
+        :return:
+        """
         global actions
         if len(actions.keys()) != 0 and len(frames) != 0:
             remove_window = Toplevel(window)
@@ -323,6 +384,12 @@ def run_gui():
             submit_button.grid()
 
     def apply_preprocessing(frame,object_detector):
+        """
+        This function takes a frame and returns this same frame with the correct preprocessing applied.
+        :param frame: A single frame from a video
+        :param object_detector: A cv2 objectdetector object used for preprocessing
+        :return:
+        """
         #frame = frames[frame_index]
         original_frame = copy.copy(frame)
         settings = settings_field.get("1.0","end").split("\n")
@@ -350,6 +417,11 @@ def run_gui():
         return frame
 
     def piv_thread():
+        """
+        This function display a subwindow with some settings for the PIV analysis and then calles the PIV function with
+        these settings.
+        :return:
+        """
         global first_run
         first_run = False
         def submit():
@@ -383,6 +455,16 @@ def run_gui():
 
 
     def perform_piv(win_size, overlap):
+        """
+        This function performs a full Particle Image Velocimetry (PIV) analysis on the video currently opened in the GUI.
+        For each frame n and frame n+1 it calculates PIV with the end result being an average over these results.
+        The first 2 frames are skipped as to give the object detectors 2 frames to instatiate.
+        This function als calculates and display the plotted results.
+
+        :param win_size: The size of the windows the video is subdivided into
+        :param overlap: The percentage of overlap for the search windows 50 percent is commonly used
+        :return:
+        """
         global frame_index
         global piv_canvas
         global toolbar
@@ -498,6 +580,15 @@ def run_gui():
 
 
     def save_matrices():
+        """
+        This function is called when the user wants to save the results that make up the vectorfield plot.
+        A path to some location is asked from the user after which 4 csv files are generated consisting of
+        1. average distance
+        2. average directions in degrees where 0 is straight upward and 180 is straight down
+        3. The average X directions
+        4. The average Y directions
+        :return:
+        """
         global results
         loc = filedialog.askdirectory()
         loc_directions = loc + "/arrow_directions.csv"
@@ -521,6 +612,11 @@ def run_gui():
 
 
     def piv_display():
+        """
+        This function toggles between the PIV and the preprocessing output view by using a checkbox
+
+        :return:
+        """
         global piv_canvas
         global toolbar
         if piv_canvas != None and piv_check.get():
@@ -538,6 +634,10 @@ def run_gui():
 
 
     def Morans_I():
+        """
+        This function calculates the Morans Index and associated P value over the PIV analysis.
+        :return:
+        """
         global Vmean
         global Umean
 
@@ -662,27 +762,59 @@ def run_gui():
 
 
 def dilation(frame,shape_x,shape_y):
-
+    """
+    Perform a dilation operation over some frame with some kernel (shape_x.shape_y)
+    :param frame: An input frame
+    :param shape_x: some integer for the kernel x value
+    :param shape_y: Some integer for the kernel y value
+    :return: An output frame with erosion applied
+    """
     frame = cv2.dilate(frame, np.ones((shape_x, shape_y), np.uint8), iterations=1)
     return frame
 
 
 def erosion(frame,shape_x,shape_y):
+    """
+    Perform a erosion operation over some frame with some kernel (shape_x.shape_y)
+    :param frame: An input frame
+    :param shape_x: some integer for the kernel x value
+    :param shape_y: Some integer for the kernel y value
+    :return: An output frame with erosion applied
+    """
     frame = cv2.erode(frame, np.ones((shape_x, shape_y), np.uint8), iterations=1)
     return frame
 
 
 def apply_mask(mask, original_frame):
+    """
+    This function applies a mask to a frame
+    :param mask: Some black and white mask matching the frame size
+    :param original_frame: Some frame
+    :return: The frame with the applied mask
+    """
     frame = cv2.bitwise_or(original_frame,np.ones_like(original_frame),mask=mask)
     return frame
 
 
 def object_detector_func(frame,object_detector):
+    """
+    This function applies an object detector to a frame and calculates a mask of moving objects
+    :param frame: Some frame from a video
+    :param object_detector: An earlier instantiated object detection object
+    :return: A mask of the moving objects in a frame
+    """
     frame = object_detector.apply(frame)
     return frame
 
 
 def corr_2d(a, v):
+    """
+    Calculates the 2 dimensional correlation of matrices a and v.
+    If a == v it calculates the autocorrelation
+    :param a: Some matrix
+    :param v: Some matrix with the same dimensions as a
+    :return: a matrix of average correlation values
+    """
     temp = []
     for i in range(len(a) // 2):
         ai = a[i:]

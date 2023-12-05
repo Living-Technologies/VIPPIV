@@ -107,6 +107,7 @@ def run_gui():
             piv_canvas.get_tk_widget().destroy()
             toolbar.grid_remove()
             cb.grid_remove()
+            button_moran_index.grid_remove()
 
         frame_index = 0
         video_stream(frames[frame_index])

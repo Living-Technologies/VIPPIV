@@ -16,6 +16,8 @@ import ctypes
 import screeninfo
 import matplotlib.colors as mcol
 import matplotlib.cm as cm
+from libpysal.weights import lat2W
+from esda.moran import Moran
 
 # Enable this when compiling for windows
 # ctypes.windll.shcore.SetProcessDpiAwareness(2)
@@ -29,10 +31,13 @@ object_detector_test = None
 piv_canvas = None
 toolbar = None
 results = []
+Vmean = None
+Umean = None
+first_run = True
 
 def run_gui():
     window = tk.Tk()
-    window.title('Visual Interactive Program for Particle Image Velocimetry')
+    window.title('VIPPIV')
     global piv_canvas
 
     def get_monitor_from_coord(x, y):
@@ -78,6 +83,11 @@ def run_gui():
         global frame_index
         global loaded_file
         global piv_canvas
+        global Vmean
+        global Umean
+        global first_run
+        Vmean = None
+        Umean = None
 
         frames = []
         video_name = filedialog.askopenfilename()
@@ -92,8 +102,11 @@ def run_gui():
                 j += 1
 
         loaded_file = True
-        display_right.lift()
-        piv_canvas = None
+        if not first_run:
+            display_right.lift()
+            piv_canvas.get_tk_widget().destroy()
+            toolbar.grid_remove()
+            cb.grid_remove()
 
         frame_index = 0
         video_stream(frames[frame_index])
@@ -336,6 +349,8 @@ def run_gui():
         return frame
 
     def piv_thread():
+        global first_run
+        first_run = False
         def submit():
             window_size = window_size_entry.get()
             overlap_size = overlap_size_entry.get()
@@ -371,6 +386,8 @@ def run_gui():
         global piv_canvas
         global toolbar
         global results
+        global Vmean
+        global Umean
         results = []
         var_threshold = 100
         for key, value in actions.items():
@@ -404,7 +421,6 @@ def run_gui():
 
                     image1 = cv2.cvtColor(image1, cv2.COLOR_GRAY2RGB)
                     image2 = cv2.cvtColor(image2, cv2.COLOR_GRAY2RGB)
-
                     u, v, s2n = pyprocess.extended_search_area_piv(image1.sum(axis=2),
                                                                    image2.sum(axis=2), window_size=win_size,
                                                                    overlap=overlap, dt=1);
@@ -468,6 +484,7 @@ def run_gui():
             time_left.grid_remove()
             cb.grid()
             button_save_matrix.grid()
+            button_moran_index.grid()
 
             pyth_matrix_out = np.flip(pyth_matrix,1)
             results.append(pyth_matrix_out)
@@ -510,11 +527,59 @@ def run_gui():
             display_right.lower()
             toolbar.grid()
             button_save_matrix.grid()
+            button_moran_index.grid()
 
         elif piv_canvas != None and not piv_check.get():
             display_right.lift()
             toolbar.grid_remove()
             button_save_matrix.grid_remove()
+            button_moran_index.grid_remove()
+
+
+    def Morans_I():
+        global Vmean
+        global Umean
+
+        def submit():
+            morans_window.destroy()
+
+        def show_plot():
+            plt.imshow(rowby_x, origin='lower')
+            plt.show()
+
+        rowby_x = []
+        disp = Vmean.shape[1] // 2
+        for yd in range(disp):
+            UV_row = []
+            for yindex in range(len(Vmean[1]) - yd):
+                a1 = np.array([[U, V] for U, V in zip(Umean[:, yindex], Vmean[:, yindex])])
+                a2 = np.array([[U, V] for U, V in zip(Umean[:, yindex + yd], Vmean[:, yindex + yd])])
+                UV_row.append(corr_2d(a1, a2))
+            UV_row = np.array(UV_row)
+            rowby_x.append(np.mean(UV_row, 0))
+            
+        rowby_x = np.transpose(rowby_x)
+
+        w = lat2W(rowby_x.shape[0], rowby_x.shape[1], rook=False)
+        mi = Moran(rowby_x, w)
+
+        morans_window = Toplevel(window)
+        morans_window.transient(window)
+        morans_window.grab_set()
+        moransIndex_label = tk.Label(morans_window, text="Morans index")
+        moransPvalue_label = tk.Label(morans_window,text="P value")
+        moransIndex = tk.Label(morans_window, text=str(mi.I))
+        moransPvalue = tk.Label(morans_window,text=str(mi.p_norm))
+        moransIndex.grid(row=0, column=1, padx=2, pady=5)
+        moransPvalue.grid(row=1, column=1, padx=2, pady=5)
+        moransIndex_label.grid(row=0, column=0, padx=2, pady=5)
+        moransPvalue_label.grid(row=1, column=0, padx=2, pady=5)
+
+        submit_button = tk.Button(morans_window, text='OK', command=submit)
+        submit_button.grid()
+        show_button = tk.Button(morans_window, text='Show autocorr heatmap', command=show_plot)
+        show_button.grid()
+
 
     progress = Progressbar(window, orient="horizontal",
                            length=100, mode='determinate')
@@ -523,6 +588,7 @@ def run_gui():
     action_field = tk.Text(width=20, state="disabled")
     settings_field = tk.Text(width=25)
     display_left = tk.Label(window)
+    title = tk.Label(window, text="Visual Interactive Program for Particle Image Velocimetry")
 
     #square = Image.fromarray(np.zeros((480, int(width/7))))
     square = Image.fromarray(np.zeros((480, width)))
@@ -547,7 +613,7 @@ def run_gui():
     button_perform_piv = tk.Button(text='PIV analysis', width=20, command=piv_thread)
     button_save_manual = tk.Button(text='Save manual changes', width=20,command=save_manual_changes)
     button_save_matrix = tk.Button(text='Save arrow information', width=20,command=save_matrices)
-
+    button_moran_index = tk.Button(text='Calculate Morans Index', width=20,command=Morans_I)
     piv_check = tk.IntVar()
 
     cb = tk.Checkbutton(window, text="Show PIV",variable=piv_check, command=piv_display)
@@ -557,6 +623,8 @@ def run_gui():
     button_left = tk.Button(text='<--', width=8, command=left)
     button_right = tk.Button(text='-->', width=8, command=right)
 
+
+    title.grid(row=0,column=0)
     action_field.grid(row=4, column=2, padx=5, pady=5)
     settings_field.grid(row=4,column=3,padx=5,pady=5)
 
@@ -568,8 +636,10 @@ def run_gui():
     button_perform_piv.grid(row=2, column=2, padx=2, pady=5)
     button_save_manual.grid(row=3,column=3,padx=2,pady=5)
     button_save_matrix.grid(row=5,column=5,padx=2,pady=5)
+    button_moran_index.grid(row=3,column=5,padx=2,pady=5)
+    button_moran_index.grid_remove()
     button_save_matrix.grid_remove()
-    cb.grid(row=3,column=5,padx=2,pady=5)
+    cb.grid(row=2,column=5,padx=2,pady=5)
     cb.grid_remove()
 
     progress.grid(row=6, column=2, padx=2, pady=5)
@@ -609,6 +679,17 @@ def apply_mask(mask, original_frame):
 def object_detector_func(frame,object_detector):
     frame = object_detector.apply(frame)
     return frame
+
+
+def corr_2d(a, v):
+    temp = []
+    for i in range(len(a) // 2):
+        ai = a[i:]
+        vi = v[:len(ai)]
+        som = np.sum((ai - np.mean(ai, 0)) * (vi - np.mean(vi, 0)), axis=1)
+        temp.append(np.mean(som))
+
+    return temp
 
 if __name__ == '__main__':
     run_gui()

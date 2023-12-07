@@ -9,7 +9,7 @@ from PIL import Image, ImageTk
 import cv2
 from openpiv import pyprocess
 import matplotlib.pyplot as plt
-from  matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import copy
 from mpl_toolkits.axes_grid1 import ImageGrid
 import ctypes
@@ -34,6 +34,7 @@ Vmean = None
 Umean = None
 first_run = True
 
+
 def run_gui():
     """
     This is the main function to instantiate and run the entire gui
@@ -55,7 +56,8 @@ def run_gui():
     current_screen = get_monitor_from_coord(window.winfo_x(), window.winfo_y())
 
     # Get the monitor's size
-    width = int(current_screen.width/4)
+    width = int(current_screen.width / 4)
+
     def video_stream(frame):
         """
         This function takes a video frame and displays this on the left display field
@@ -145,7 +147,7 @@ def run_gui():
                 frame_label.config(text="Frame: " + str(frame_index))
                 frame = frames[frame_index]
                 video_stream(frame)
-                output_frame = apply_preprocessing(frame,object_detector_test)
+                output_frame = apply_preprocessing(frame, object_detector_test)
 
                 video_output(output_frame)
 
@@ -160,14 +162,14 @@ def run_gui():
         global frames
         if loaded_file:
 
-            if not frame_index+1 >= len(frames):
+            if not frame_index + 1 >= len(frames):
                 frame_index += 1
 
                 frame_label.config(text="Frame: " + str(frame_index))
 
                 frame = frames[frame_index]
                 video_stream(frame)
-                output_frame = apply_preprocessing(frame,object_detector_test)
+                output_frame = apply_preprocessing(frame, object_detector_test)
 
                 video_output(output_frame)
 
@@ -240,7 +242,6 @@ def run_gui():
             kernel_size_entry_x = tk.Entry(erode_window, textvariable=default_x)
             kernel_size_entry_y = tk.Entry(erode_window, textvariable=default_y)
 
-
             kernel_size_entry_x.grid(row=0, column=1, padx=2, pady=5)
             kernel_size_entry_y.grid(row=0, column=2, padx=2, pady=5)
 
@@ -281,7 +282,8 @@ def run_gui():
                 actions["object_detector " + str(actions_index)] = [threshold_value]
                 actions_index += 1
                 change_actions()
-                object_detector_test = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=int(threshold_value),detectShadows=False)
+                object_detector_test = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=int(threshold_value),
+                                                                          detectShadows=False)
                 OD_window.destroy()
 
             OD_window = Toplevel(window)
@@ -312,11 +314,11 @@ def run_gui():
 
         output_action = ""
         output_settings = ""
-        index=0
+        index = 0
         for key, value in actions.items():
             if key.split(" ")[0] == "erosion" or key.split(" ")[0] == "dilate":
                 output_action += key.split(" ")[0] + "\n"
-                output_settings += "kernel size = " + value[0] +',' +str(value[1])+ "\n"
+                output_settings += "kernel size = " + value[0] + ',' + str(value[1]) + "\n"
 
             elif key.split(" ")[0] == "object_detector":
                 output_action += key.split(" ")[0] + "\n"
@@ -325,11 +327,11 @@ def run_gui():
             else:
                 output_action += key.split(" ")[0] + "\n"
                 output_settings += "-" + "\n"
-            index+=1
+            index += 1
 
         action_field.insert("1.0", output_action)
         action_field.config(state="disabled")
-        settings_field.insert("1.0",output_settings)
+        settings_field.insert("1.0", output_settings)
 
     def save_manual_changes():
         """
@@ -337,11 +339,12 @@ def run_gui():
         :return:
         """
         if len(frames) != 0:
-            settings = settings_field.get("1.0","end").split("\n")
+            settings = settings_field.get("1.0", "end").split("\n")
 
-            cleanup = lambda x : x.strip().replace(" ","").split("=")
-            settings = [cleanup(x)[1] if cleanup(x)[0] != '-' else cleanup(x)[0] for x in settings if not cleanup(x) == ['']]
-            for i, (key,value) in enumerate(actions.items()):
+            cleanup = lambda x: x.strip().replace(" ", "").split("=")
+            settings = [cleanup(x)[1] if cleanup(x)[0] != '-' else cleanup(x)[0] for x in settings if
+                        not cleanup(x) == ['']]
+            for i, (key, value) in enumerate(actions.items()):
                 if key.split(" ")[0] == "erosion" or key.split(" ")[0] == "dilate":
                     kernel = settings[i].split(",")
                     actions[key] = [kernel[0], kernel[1]]
@@ -383,36 +386,37 @@ def run_gui():
             submit_button = tk.Button(remove_window, text='Submit', command=submit)
             submit_button.grid()
 
-    def apply_preprocessing(frame,object_detector):
+    def apply_preprocessing(frame, object_detector):
         """
         This function takes a frame and returns this same frame with the correct preprocessing applied.
         :param frame: A single frame from a video
         :param object_detector: A cv2 objectdetector object used for preprocessing
         :return:
         """
-        #frame = frames[frame_index]
+        # frame = frames[frame_index]
         original_frame = copy.copy(frame)
-        settings = settings_field.get("1.0","end").split("\n")
+        settings = settings_field.get("1.0", "end").split("\n")
 
-        cleanup = lambda x : x.strip().replace(" ","").split("=")
-        settings = [cleanup(x)[1] if cleanup(x)[0] != '-' else cleanup(x)[0] for x in settings if not cleanup(x) == ['']]
+        cleanup = lambda x: x.strip().replace(" ", "").split("=")
+        settings = [cleanup(x)[1] if cleanup(x)[0] != '-' else cleanup(x)[0] for x in settings if
+                    not cleanup(x) == ['']]
 
         counter = 0
         for key, value in actions.items():
 
             if key.split(" ")[0] == "erosion":
                 kernel = settings[counter].split(",")
-                frame = erosion(frame, int(kernel[0]),int(kernel[1]))
+                frame = erosion(frame, int(kernel[0]), int(kernel[1]))
 
             elif key.split(" ")[0] == "dilate":
                 kernel = settings[counter].split(",")
-                frame = dilation(frame, int(kernel[0]),int(kernel[1]))
+                frame = dilation(frame, int(kernel[0]), int(kernel[1]))
 
             elif key.split(" ")[0] == "apply_mask":
                 frame = apply_mask(frame, original_frame)
 
             elif key.split(" ")[0] == "object_detector":
-                frame = object_detector_func(frame,object_detector)
+                frame = object_detector_func(frame, object_detector)
             counter += 1
         return frame
 
@@ -424,11 +428,12 @@ def run_gui():
         """
         global first_run
         first_run = False
+
         def submit():
             window_size = window_size_entry.get()
             overlap_size = overlap_size_entry.get()
 
-            perform_piv(int(window_size),int(overlap_size))
+            perform_piv(int(window_size), int(overlap_size))
             piv_window.destroy()
 
         piv_window = Toplevel(window)
@@ -452,7 +457,6 @@ def run_gui():
 
         submit_button = tk.Button(piv_window, text='Submit', command=submit)
         submit_button.grid()
-
 
     def perform_piv(win_size, overlap):
         """
@@ -479,9 +483,10 @@ def run_gui():
                 var_threshold = int(value[0])
                 break
 
-
-        object_detector_1 = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=var_threshold,detectShadows=False)
-        object_detector_2 = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=var_threshold,detectShadows=False)
+        object_detector_1 = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=var_threshold,
+                                                               detectShadows=False)
+        object_detector_2 = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=var_threshold,
+                                                               detectShadows=False)
 
         frame_index = 0
 
@@ -492,15 +497,15 @@ def run_gui():
             total_len = len(frames)
             U = []
             V = []
-            for i in range(total_len-1):
+            for i in range(total_len - 1):
                 time_start = time.time()
-                progress['value'] = 100 * ((i+1) / total_len)
+                progress['value'] = 100 * ((i + 1) / total_len)
                 if i != 0 or i != 1:
                     image1 = frames[i]
-                    image2 = frames[i+1]
+                    image2 = frames[i + 1]
 
-                    image1 = apply_preprocessing(image1,object_detector_1)
-                    image2 = apply_preprocessing(image2,object_detector_2)
+                    image1 = apply_preprocessing(image1, object_detector_1)
+                    image2 = apply_preprocessing(image2, object_detector_2)
 
                     image1 = cv2.cvtColor(image1, cv2.COLOR_GRAY2RGB)
                     image2 = cv2.cvtColor(image2, cv2.COLOR_GRAY2RGB)
@@ -513,9 +518,9 @@ def run_gui():
                     U.append(u)
                     V.append(v)
                 time_end = time.time()
-                timer = int((time_end-time_start) * (total_len- i))
-                time_left.config(text="Estimated time left = "+str(timer) + " seconds")
-                #window.update_idletasks()
+                timer = int((time_end - time_start) * (total_len - i))
+                time_left.config(text="Estimated time left = " + str(timer) + " seconds")
+                # window.update_idletasks()
                 window.update()
 
             U = np.stack(U)
@@ -537,17 +542,18 @@ def run_gui():
                              )
 
             Umean = np.flip(Umean, [1])
-            Vmean = np.flip(Vmean,[0])
+            Vmean = np.flip(Vmean, [0])
 
-            x = np.flip(x,[1])
-            y = np.flip(y,[0])
+            x = np.flip(x, [1])
+            y = np.flip(y, [0])
 
             pyth_matrix = np.sqrt(Umean ** 2 + Vmean ** 2)
             max_num = np.amax(pyth_matrix)
 
             cmap = mcol.LinearSegmentedColormap.from_list("", ["blue", 'violet', "red"])
 
-            Q = grid[0].quiver(x, y, Umean, Vmean, pyth_matrix,scale_units = 'dots',scale=2, width=.007,clim=[0,50],cmap=cmap)
+            Q = grid[0].quiver(x, y, Umean, Vmean, pyth_matrix, scale_units='dots', scale=2, width=.007, clim=[0, 50],
+                               cmap=cmap)
 
             grid[0].axis('off')
 
@@ -569,15 +575,14 @@ def run_gui():
             button_save_matrix.grid()
             button_moran_index.grid()
 
-            pyth_matrix_out = np.flip(pyth_matrix,1)
+            pyth_matrix_out = np.flip(pyth_matrix, 1)
             results.append(pyth_matrix_out)
-            degrees = np.degrees(np.arctan2(Umean,Vmean))
+            degrees = np.degrees(np.arctan2(Umean, Vmean))
             degrees[degrees < 0] = 180 + (180 - abs(degrees[degrees < 0]))
             degrees = np.flip(degrees, 1)
             results.append(degrees)
             results.append(Umean)
             results.append(Vmean)
-
 
     def save_matrices():
         """
@@ -596,7 +601,6 @@ def run_gui():
         loc_meanX = loc + "/arrow_meanX.csv"
         loc_meanY = loc + "/arrow_meanY.csv"
 
-
         with open(loc_distance, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(results[0])
@@ -609,7 +613,6 @@ def run_gui():
         with open(loc_meanY, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(results[3])
-
 
     def piv_display():
         """
@@ -631,7 +634,6 @@ def run_gui():
             toolbar.grid_remove()
             button_save_matrix.grid_remove()
             button_moran_index.grid_remove()
-
 
     def Morans_I():
         """
@@ -655,10 +657,10 @@ def run_gui():
             for yindex in range(len(Vmean[1]) - yd):
                 a1 = np.array([[U, V] for U, V in zip(Umean[:, yindex], Vmean[:, yindex])])
                 a2 = np.array([[U, V] for U, V in zip(Umean[:, yindex + yd], Vmean[:, yindex + yd])])
-                UV_row.append(corr_2d(a1, a2))
+                UV_row.append(corr_2d(a1, a2, Umean, Vmean))
             UV_row = np.array(UV_row)
             rowby_x.append(np.mean(UV_row, 0))
-            
+
         rowby_x = np.transpose(rowby_x)
 
         w = lat2W(rowby_x.shape[0], rowby_x.shape[1], rook=False)
@@ -668,9 +670,9 @@ def run_gui():
         morans_window.transient(window)
         morans_window.grab_set()
         moransIndex_label = tk.Label(morans_window, text="Morans index")
-        moransPvalue_label = tk.Label(morans_window,text="P value")
+        moransPvalue_label = tk.Label(morans_window, text="P value")
         moransIndex = tk.Label(morans_window, text=str(mi.I))
-        moransPvalue = tk.Label(morans_window,text=str(mi.p_norm))
+        moransPvalue = tk.Label(morans_window, text=str(mi.p_norm))
         moransIndex.grid(row=0, column=1, padx=2, pady=5)
         moransPvalue.grid(row=1, column=1, padx=2, pady=5)
         moransIndex_label.grid(row=0, column=0, padx=2, pady=5)
@@ -681,7 +683,6 @@ def run_gui():
         show_button = tk.Button(morans_window, text='Show autocorr heatmap', command=show_plot)
         show_button.grid()
 
-
     progress = Progressbar(window, orient="horizontal",
                            length=100, mode='determinate')
     time_left = tk.Label(window, text="Estimated time left= ")
@@ -691,7 +692,7 @@ def run_gui():
     display_left = tk.Label(window)
     title = tk.Label(window, text="Visual Interactive Program for Particle Image Velocimetry")
 
-    #square = Image.fromarray(np.zeros((480, int(width/7))))
+    # square = Image.fromarray(np.zeros((480, int(width/7))))
     square = Image.fromarray(np.zeros((480, width)))
 
     imgtk_sq = ImageTk.PhotoImage(image=square)
@@ -712,22 +713,21 @@ def run_gui():
     button_object_detector = tk.Button(text='Add object detector', width=20, command=object_detector_window)
     button_remove_latest_actions = tk.Button(text='remove action', width=20, command=remove)
     button_perform_piv = tk.Button(text='PIV analysis', width=20, command=piv_thread)
-    button_save_manual = tk.Button(text='Save manual changes', width=20,command=save_manual_changes)
-    button_save_matrix = tk.Button(text='Save arrow information', width=20,command=save_matrices)
-    button_moran_index = tk.Button(text='Calculate Morans Index', width=20,command=Morans_I)
+    button_save_manual = tk.Button(text='Save manual changes', width=20, command=save_manual_changes)
+    button_save_matrix = tk.Button(text='Save arrow information', width=20, command=save_matrices)
+    button_moran_index = tk.Button(text='Calculate Morans Index', width=20, command=Morans_I)
     piv_check = tk.IntVar()
 
-    cb = tk.Checkbutton(window, text="Show PIV",variable=piv_check, command=piv_display)
+    cb = tk.Checkbutton(window, text="Show PIV", variable=piv_check, command=piv_display)
 
     frame_label = tk.Label(window)
 
     button_left = tk.Button(text='<--', width=8, command=left)
     button_right = tk.Button(text='-->', width=8, command=right)
 
-
-    title.grid(row=0,column=0)
+    title.grid(row=0, column=0)
     action_field.grid(row=4, column=2, padx=5, pady=5)
-    settings_field.grid(row=4,column=3,padx=5,pady=5)
+    settings_field.grid(row=4, column=3, padx=5, pady=5)
 
     button_dilate.grid(row=1, column=1, padx=2, pady=5)
     button_erode.grid(row=1, column=2, padx=2, pady=5)
@@ -735,12 +735,12 @@ def run_gui():
     button_object_detector.grid(row=2, column=1, padx=2, pady=5)
     button_remove_latest_actions.grid(row=2, column=3, padx=2, pady=5)
     button_perform_piv.grid(row=2, column=2, padx=2, pady=5)
-    button_save_manual.grid(row=3,column=3,padx=2,pady=5)
-    button_save_matrix.grid(row=5,column=5,padx=2,pady=5)
-    button_moran_index.grid(row=3,column=5,padx=2,pady=5)
+    button_save_manual.grid(row=3, column=3, padx=2, pady=5)
+    button_save_matrix.grid(row=5, column=5, padx=2, pady=5)
+    button_moran_index.grid(row=3, column=5, padx=2, pady=5)
     button_moran_index.grid_remove()
     button_save_matrix.grid_remove()
-    cb.grid(row=2,column=5,padx=2,pady=5)
+    cb.grid(row=2, column=5, padx=2, pady=5)
     cb.grid_remove()
 
     progress.grid(row=6, column=2, padx=2, pady=5)
@@ -757,11 +757,10 @@ def run_gui():
 
     frame_label.grid(row=5, column=2)
 
-
     window.mainloop()
 
 
-def dilation(frame,shape_x,shape_y):
+def dilation(frame, shape_x, shape_y):
     """
     Perform a dilation operation over some frame with some kernel (shape_x.shape_y)
     :param frame: An input frame
@@ -773,7 +772,7 @@ def dilation(frame,shape_x,shape_y):
     return frame
 
 
-def erosion(frame,shape_x,shape_y):
+def erosion(frame, shape_x, shape_y):
     """
     Perform a erosion operation over some frame with some kernel (shape_x.shape_y)
     :param frame: An input frame
@@ -792,11 +791,11 @@ def apply_mask(mask, original_frame):
     :param original_frame: Some frame
     :return: The frame with the applied mask
     """
-    frame = cv2.bitwise_or(original_frame,np.ones_like(original_frame),mask=mask)
+    frame = cv2.bitwise_or(original_frame, np.ones_like(original_frame), mask=mask)
     return frame
 
 
-def object_detector_func(frame,object_detector):
+def object_detector_func(frame, object_detector):
     """
     This function applies an object detector to a frame and calculates a mask of moving objects
     :param frame: Some frame from a video
@@ -807,7 +806,7 @@ def object_detector_func(frame,object_detector):
     return frame
 
 
-def corr_2d(a, v):
+def corr_2d(a, v, Umean, Vmean):
     """
     Calculates the 2 dimensional correlation of matrices a and v.
     If a == v it calculates the autocorrelation
@@ -815,14 +814,18 @@ def corr_2d(a, v):
     :param v: Some matrix with the same dimensions as a
     :return: a matrix of average correlation values
     """
+    U_avg = np.mean(Umean)
+    V_avg = np.mean(Vmean)
+    full_avg = (U_avg + V_avg) / 2
     temp = []
     for i in range(len(a) // 2):
         ai = a[i:]
         vi = v[:len(ai)]
-        som = np.sum((ai - np.mean(ai, 0)) * (vi - np.mean(vi, 0)), axis=1)
+        som = np.sum((ai - full_avg) * (vi - full_avg), axis=1)
         temp.append(np.mean(som))
 
     return temp
+
 
 if __name__ == '__main__':
     run_gui()

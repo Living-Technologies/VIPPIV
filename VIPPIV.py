@@ -107,29 +107,30 @@ def run_gui():
         global first_run
         Vmean = None
         Umean = None
-
-        frames = []
         video_name = filedialog.askopenfilename()
-        cap = cv2.VideoCapture(video_name)
-        succes = True
-        j = 0
-        while succes:
-            succes, image1 = cap.read()
-            if succes:
-                image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
-                frames.append(image1)
-                j += 1
+        if video_name != '':
 
-        loaded_file = True
-        if not first_run:
-            display_right.lift()
-            piv_canvas.get_tk_widget().destroy()
-            toolbar.grid_remove()
-            cb.grid_remove()
-            button_moran_index.grid_remove()
+            frames = []
+            cap = cv2.VideoCapture(video_name)
+            succes = True
+            j = 0
+            while succes:
+                succes, image1 = cap.read()
+                if succes:
+                    image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
+                    frames.append(image1)
+                    j += 1
 
-        frame_index = 0
-        video_stream(frames[frame_index])
+            loaded_file = True
+            if not first_run:
+                display_right.lift()
+                piv_canvas.get_tk_widget().destroy()
+                toolbar.grid_remove()
+                cb.grid_remove()
+                button_moran_index.grid_remove()
+
+            frame_index = 0
+            video_stream(frames[frame_index])
 
     def left():
         """
@@ -575,23 +576,47 @@ def run_gui():
             button_save_matrix.grid()
             button_moran_index.grid()
 
-            pyth_matrix_out = np.flip(pyth_matrix, 1)
-            results.append(pyth_matrix_out)
+            speed_matrix_out = np.flip(pyth_matrix, 1)
+
             degrees = np.degrees(np.arctan2(Umean, Vmean))
             degrees[degrees < 0] = 180 + (180 - abs(degrees[degrees < 0]))
             degrees = np.flip(degrees, 1)
+
+            rowby_x = []
+            disp = Vmean.shape[1] // 2
+            for yd in range(disp):
+                UV_row = []
+                for yindex in range(len(Vmean[1]) - yd):
+                    a1 = np.array([[U, V] for U, V in zip(Umean[:, yindex], Vmean[:, yindex])])
+                    a2 = np.array([[U, V] for U, V in zip(Umean[:, yindex + yd], Vmean[:, yindex + yd])])
+                    UV_row.append(corr_2d(a1, a2, Umean, Vmean))
+                UV_row = np.array(UV_row)
+                rowby_x.append(np.mean(UV_row, 0))
+
+            rowby_x = np.transpose(rowby_x)
+
+            w = lat2W(rowby_x.shape[0], rowby_x.shape[1], rook=False)
+            mi = Moran(rowby_x, w)
+
+            results.append(speed_matrix_out)
             results.append(degrees)
             results.append(Umean)
             results.append(Vmean)
 
+            analysis = [mi.I, mi.p_norm, np.mean(pyth_matrix), np.std(pyth_matrix)]
+
+            results.append(analysis)
+            results.append(rowby_x)
+
     def save_matrices():
         """
         This function is called when the user wants to save the results that make up the vectorfield plot.
-        A path to some location is asked from the user after which 4 csv files are generated consisting of
+        A path to some location is asked from the user after which 5 csv files are generated consisting of
         1. average distance
         2. average directions in degrees where 0 is straight upward and 180 is straight down
         3. The average X directions
         4. The average Y directions
+        5. A file containing the associated Morans index, Morans index p value, the average speed and the standard deviation of the speed
         :return:
         """
         global results
@@ -600,6 +625,7 @@ def run_gui():
         loc_distance = loc + "/arrow_distance.csv"
         loc_meanX = loc + "/arrow_meanX.csv"
         loc_meanY = loc + "/arrow_meanY.csv"
+        loc_summary = loc + "/summary.csv"
 
         with open(loc_distance, 'w', newline='') as f:
             writer = csv.writer(f)
@@ -613,6 +639,12 @@ def run_gui():
         with open(loc_meanY, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(results[3])
+        with open(loc_summary, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["The Morans index value = ", results[4][0]])
+            writer.writerow(["The Morans index associated P value = ", results[4][1]])
+            writer.writerow(["The average movement speed = ", results[4][2]])
+            writer.writerow(["The standard deviation of the movement speed = ", results[4][3]])
 
     def piv_display():
         """
@@ -620,6 +652,7 @@ def run_gui():
 
         :return:
         """
+
         global piv_canvas
         global toolbar
         if piv_canvas != None and piv_check.get():
@@ -637,46 +670,45 @@ def run_gui():
 
     def Morans_I():
         """
-        This function calculates the Morans Index and associated P value over the PIV analysis.
+        This function displays the Morans index, Morans index p value, average speed and standard deviation of the speed.
+        It also allows the user to see the underlying heatmap on which the Morans index is calculated.
         :return:
         """
+
         global Vmean
         global Umean
+        global results
 
         def submit():
             morans_window.destroy()
 
         def show_plot():
-            plt.imshow(rowby_x, origin='lower')
+            plt.imshow(results[5], origin='lower')
             plt.show()
 
-        rowby_x = []
-        disp = Vmean.shape[1] // 2
-        for yd in range(disp):
-            UV_row = []
-            for yindex in range(len(Vmean[1]) - yd):
-                a1 = np.array([[U, V] for U, V in zip(Umean[:, yindex], Vmean[:, yindex])])
-                a2 = np.array([[U, V] for U, V in zip(Umean[:, yindex + yd], Vmean[:, yindex + yd])])
-                UV_row.append(corr_2d(a1, a2, Umean, Vmean))
-            UV_row = np.array(UV_row)
-            rowby_x.append(np.mean(UV_row, 0))
-
-        rowby_x = np.transpose(rowby_x)
-
-        w = lat2W(rowby_x.shape[0], rowby_x.shape[1], rook=False)
-        mi = Moran(rowby_x, w)
+        analysis = results[4]
 
         morans_window = Toplevel(window)
         morans_window.transient(window)
         morans_window.grab_set()
         moransIndex_label = tk.Label(morans_window, text="Morans index")
         moransPvalue_label = tk.Label(morans_window, text="P value")
-        moransIndex = tk.Label(morans_window, text=str(mi.I))
-        moransPvalue = tk.Label(morans_window, text=str(mi.p_norm))
-        moransIndex.grid(row=0, column=1, padx=2, pady=5)
-        moransPvalue.grid(row=1, column=1, padx=2, pady=5)
+        avgSpeed_label = tk.Label(morans_window, text="Average movement speed")
+        sdSpeed_label = tk.Label(morans_window, text="STD movement speed")
+        moransIndex = tk.Label(morans_window, text=str(round(analysis[0],3)))
+        moransPvalue = tk.Label(morans_window, text=str(format(analysis[1],'.3g')))
+        avgSpeed = tk.Label(morans_window, text=str(round(analysis[2],3)))
+        sdSpeed = tk.Label(morans_window, text=str(round(analysis[3],3)))
+
         moransIndex_label.grid(row=0, column=0, padx=2, pady=5)
         moransPvalue_label.grid(row=1, column=0, padx=2, pady=5)
+        avgSpeed_label.grid(row=2,column=0,padx=2,pady=5)
+        sdSpeed_label.grid(row=3,column=0,padx=2,pady=5)
+
+        moransIndex.grid(row=0, column=1, padx=2, pady=5)
+        moransPvalue.grid(row=1, column=1, padx=2, pady=5)
+        avgSpeed.grid(row=2,column=1,padx=2,pady=5)
+        sdSpeed.grid(row=3,column=1,padx=2,pady=5)
 
         submit_button = tk.Button(morans_window, text='OK', command=submit)
         submit_button.grid()

@@ -19,7 +19,7 @@ from libpysal.weights import lat2W
 from esda.moran import Moran
 
 # Enable this when compiling for windows
-# ctypes.windll.shcore.SetProcessDpiAwareness(2)
+#ctypes.windll.shcore.SetProcessDpiAwareness(2)
 
 frame_index = 0
 loaded_file = False
@@ -187,21 +187,25 @@ def run_gui():
             def submit():
                 global actions_index
                 global actions
-                input_kernel_x = kernel_size_entry_x.get()
-                input_kernel_y = kernel_size_entry_y.get()
-                actions["dilate " + str(actions_index)] = [input_kernel_x, input_kernel_y]
-                actions_index += 1
-                change_actions()
-                dilate_window.destroy()
+                if not mandatory_value_check(dilate_window,kernel_size_entry_x.get(),kernel_size_entry_y.get()):
+                    input_kernel_x = kernel_size_entry_x.get()
+                    input_kernel_y = kernel_size_entry_y.get()
+                    actions["dilate " + str(actions_index)] = [input_kernel_x, input_kernel_y]
+                    actions_index += 1
+                    change_actions()
+                    dilate_window.destroy()
 
             dilate_window = Toplevel(window)
+            x = window.winfo_x()
+            y = window.winfo_y()
+            dilate_window.geometry("+%d+%d" % (x, y))
             dilate_window.transient(window)
             dilate_window.grab_set()
 
             label_rows = tk.Label(dilate_window, text="kernel_size")
 
-            default_x = tk.StringVar(dilate_window, value="15")
-            default_y = tk.StringVar(dilate_window, value="15")
+            default_x = tk.StringVar(dilate_window, value="")
+            default_y = tk.StringVar(dilate_window, value="")
             kernel_size_entry_x = tk.Entry(dilate_window, textvariable=default_x)
             kernel_size_entry_y = tk.Entry(dilate_window, textvariable=default_y)
 
@@ -224,22 +228,26 @@ def run_gui():
             def submit():
                 global actions_index
                 global actions
-                input_kernel_x = kernel_size_entry_x.get()
-                input_kernel_y = kernel_size_entry_y.get()
+                if not mandatory_value_check(erode_window, kernel_size_entry_x.get(), kernel_size_entry_y.get()):
+                    input_kernel_x = kernel_size_entry_x.get()
+                    input_kernel_y = kernel_size_entry_y.get()
 
-                actions["erosion " + str(actions_index)] = [input_kernel_x, input_kernel_y]
-                actions_index += 1
-                change_actions()
-                erode_window.destroy()
+                    actions["erosion " + str(actions_index)] = [input_kernel_x, input_kernel_y]
+                    actions_index += 1
+                    change_actions()
+                    erode_window.destroy()
 
             erode_window = Toplevel(window)
+            x = window.winfo_x()
+            y = window.winfo_y()
+            erode_window.geometry("+%d+%d" % (x, y))
             erode_window.transient(window)
             erode_window.grab_set()
 
             label_rows = tk.Label(erode_window, text="kernel_size")
 
-            default_x = tk.StringVar(erode_window, value="15")
-            default_y = tk.StringVar(erode_window, value="15")
+            default_x = tk.StringVar(erode_window, value="")
+            default_y = tk.StringVar(erode_window, value="")
             kernel_size_entry_x = tk.Entry(erode_window, textvariable=default_x)
             kernel_size_entry_y = tk.Entry(erode_window, textvariable=default_y)
 
@@ -288,6 +296,9 @@ def run_gui():
                 OD_window.destroy()
 
             OD_window = Toplevel(window)
+            x = window.winfo_x()
+            y = window.winfo_y()
+            OD_window.geometry("+%d+%d" % (x, y))
             OD_window.transient(window)
             OD_window.grab_set()
 
@@ -362,6 +373,9 @@ def run_gui():
         global actions
         if len(actions.keys()) != 0 and len(frames) != 0:
             remove_window = Toplevel(window)
+            x = window.winfo_x()
+            y = window.winfo_y()
+            remove_window.geometry("+%d+%d" % (x, y))
             remove_window.transient(window)
             remove_window.grab_set()
 
@@ -431,21 +445,25 @@ def run_gui():
         first_run = False
 
         def submit():
-            window_size = window_size_entry.get()
-            overlap_size = overlap_size_entry.get()
+            if not mandatory_value_check(piv_window, window_size_entry.get(), overlap_size_entry.get()):
+                window_size = window_size_entry.get()
+                overlap_size = overlap_size_entry.get()
 
-            perform_piv(int(window_size), int(overlap_size))
-            piv_window.destroy()
+                perform_piv(int(window_size), int(overlap_size))
+                piv_window.destroy()
 
         piv_window = Toplevel(window)
+        x = window.winfo_x()
+        y = window.winfo_y()
+        piv_window.geometry("+%d+%d" % (x, y))
         piv_window.transient(window)
         piv_window.grab_set()
 
         label_window = tk.Label(piv_window, text="window_size")
         label_overlap = tk.Label(piv_window, text="overlap_size")
 
-        default_win_size = tk.StringVar(piv_window, value="150")
-        default_overlap_size = tk.StringVar(piv_window, value="75")
+        default_win_size = tk.StringVar(piv_window, value="")
+        default_overlap_size = tk.StringVar(piv_window, value="")
 
         window_size_entry = tk.Entry(piv_window, textvariable=default_win_size)
         overlap_size_entry = tk.Entry(piv_window, textvariable=default_overlap_size)
@@ -603,7 +621,7 @@ def run_gui():
             results.append(Umean)
             results.append(Vmean)
 
-            analysis = [mi.I, mi.p_norm, np.mean(pyth_matrix), np.std(pyth_matrix)]
+            analysis = [mi.I, mi.p_norm, np.mean(pyth_matrix), np.std(pyth_matrix),np.mean(pyth_matrix)*mi.I]
 
             results.append(analysis)
             results.append(rowby_x)
@@ -645,6 +663,7 @@ def run_gui():
             writer.writerow(["The Morans index associated P value = ", results[4][1]])
             writer.writerow(["The average movement speed = ", results[4][2]])
             writer.writerow(["The standard deviation of the movement speed = ", results[4][3]])
+            writer.writerow(["The score = ", results[4][4]])
 
     def piv_display():
         """
@@ -695,20 +714,27 @@ def run_gui():
         moransPvalue_label = tk.Label(morans_window, text="P value")
         avgSpeed_label = tk.Label(morans_window, text="Average movement speed")
         sdSpeed_label = tk.Label(morans_window, text="STD movement speed")
+        speed_morans_label = tk.Label(morans_window, text="Final score")
+
         moransIndex = tk.Label(morans_window, text=str(round(analysis[0],3)))
         moransPvalue = tk.Label(morans_window, text=str(format(analysis[1],'.3g')))
         avgSpeed = tk.Label(morans_window, text=str(round(analysis[2],3)))
         sdSpeed = tk.Label(morans_window, text=str(round(analysis[3],3)))
+        speed_morans = tk.Label(morans_window, text=str(round(analysis[4],3)))
 
         moransIndex_label.grid(row=0, column=0, padx=2, pady=5)
         moransPvalue_label.grid(row=1, column=0, padx=2, pady=5)
         avgSpeed_label.grid(row=2,column=0,padx=2,pady=5)
         sdSpeed_label.grid(row=3,column=0,padx=2,pady=5)
+        speed_morans_label.grid(row=4,column=0,padx=2,pady=5)
+
 
         moransIndex.grid(row=0, column=1, padx=2, pady=5)
         moransPvalue.grid(row=1, column=1, padx=2, pady=5)
         avgSpeed.grid(row=2,column=1,padx=2,pady=5)
         sdSpeed.grid(row=3,column=1,padx=2,pady=5)
+        speed_morans.grid(row=4,column=1,padx=2,pady=5)
+
 
         submit_button = tk.Button(morans_window, text='OK', command=submit)
         submit_button.grid()
@@ -858,6 +884,26 @@ def corr_2d(a, v, Umean, Vmean):
 
     return temp
 
+def mandatory_value_check(top_window,*inputs):
+
+    def submit():
+        mandatory_window.destroy()
+    empty = False
+    for value in inputs:
+        if value == "":
+            empty = True
+    if empty:
+        mandatory_window = Toplevel(top_window)
+
+        x = top_window.winfo_x()
+        y = top_window.winfo_y()
+        mandatory_window.geometry("+%d+%d" % (x, y))
+        label = tk.Label(mandatory_window, text="A mandatory input field is empty")
+        submit_button = tk.Button(mandatory_window, text='Ok', command=submit)
+        label.grid()
+        submit_button.grid()
+
+    return empty
 
 if __name__ == '__main__':
     run_gui()

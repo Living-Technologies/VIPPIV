@@ -19,7 +19,7 @@ from libpysal.weights import lat2W
 from esda.moran import Moran
 
 # Enable this when compiling for windows
-ctypes.windll.shcore.SetProcessDpiAwareness(2)
+# ctypes.windll.shcore.SetProcessDpiAwareness(2)
 
 frame_index = 0
 loaded_file = False
@@ -509,9 +509,9 @@ def run_gui():
 
         progress.grid()
         time_left.grid()
-
+        preprocessed_frames = []
         for i in range(len(frames)):
-            frames[i] = apply_preprocessing(frames[i],object_detector_1)
+            preprocessed_frames.append(apply_preprocessing(frames[i],object_detector_1))
 
         if len(frames) != 0:
             total_len = len(frames)
@@ -524,8 +524,8 @@ def run_gui():
                 # image1 = apply_preprocessing(image1, object_detector_1)
                 # image2 = apply_preprocessing(image2, object_detector_1)
                 if i != 0 or i != 1:
-                    image1 = frames[i]
-                    image2 = frames[i + 1]
+                    image1 = preprocessed_frames[i]
+                    image2 = preprocessed_frames[i + 1]
                     image1 = cv2.cvtColor(image1, cv2.COLOR_GRAY2RGB)
                     image2 = cv2.cvtColor(image2, cv2.COLOR_GRAY2RGB)
                     u, v, s2n = pyprocess.extended_search_area_piv(image1.sum(axis=2),

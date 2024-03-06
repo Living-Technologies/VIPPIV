@@ -19,7 +19,7 @@ from libpysal.weights import lat2W
 from esda.moran import Moran
 
 # Enable this when compiling for windows
-#ctypes.windll.shcore.SetProcessDpiAwareness(2)
+ctypes.windll.shcore.SetProcessDpiAwareness(2)
 
 frame_index = 0
 loaded_file = False
@@ -504,13 +504,14 @@ def run_gui():
 
         object_detector_1 = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=var_threshold,
                                                                detectShadows=False)
-        object_detector_2 = cv2.createBackgroundSubtractorMOG2(history=2, varThreshold=var_threshold,
-                                                               detectShadows=False)
 
         frame_index = 0
 
         progress.grid()
         time_left.grid()
+
+        for i in range(len(frames)):
+            frames[i] = apply_preprocessing(frames[i],object_detector_1)
 
         if len(frames) != 0:
             total_len = len(frames)
@@ -519,18 +520,17 @@ def run_gui():
             for i in range(total_len - 1):
                 time_start = time.time()
                 progress['value'] = 100 * ((i + 1) / total_len)
+
+                # image1 = apply_preprocessing(image1, object_detector_1)
+                # image2 = apply_preprocessing(image2, object_detector_1)
                 if i != 0 or i != 1:
                     image1 = frames[i]
                     image2 = frames[i + 1]
-
-                    image1 = apply_preprocessing(image1, object_detector_1)
-                    image2 = apply_preprocessing(image2, object_detector_2)
-
                     image1 = cv2.cvtColor(image1, cv2.COLOR_GRAY2RGB)
                     image2 = cv2.cvtColor(image2, cv2.COLOR_GRAY2RGB)
                     u, v, s2n = pyprocess.extended_search_area_piv(image1.sum(axis=2),
                                                                    image2.sum(axis=2), window_size=win_size,
-                                                                   overlap=overlap, dt=1);
+                                                                   overlap=overlap, dt=1)
                     x, y = pyprocess.get_coordinates(image1.shape[:2], search_area_size=win_size,
                                                      overlap=overlap)
 
@@ -550,6 +550,9 @@ def run_gui():
             V = np.nan_to_num(V)
             Vmean = np.mean(V, axis=0)
 
+
+
+
             fig, ax = plt.subplots()
             grid = ImageGrid(fig, 111,
                              nrows_ncols=(1, 1),
@@ -560,18 +563,20 @@ def run_gui():
                              cbar_pad=0.05
                              )
 
-            Umean = np.flip(Umean, [1])
-            Vmean = np.flip(Vmean, [0])
-
-            x = np.flip(x, [1])
+            # Umean = np.flip(Umean, [1])
+            # Vmean = np.flip(Vmean, [0])
+            #
+            # x = np.flip(x, [1])
             y = np.flip(y, [0])
 
             pyth_matrix = np.sqrt(Umean ** 2 + Vmean ** 2)
+            # Vmean[pyth_matrix < 1] = 0
+            # Umean[pyth_matrix < 1] = 0
             max_num = np.amax(pyth_matrix)
 
             cmap = mcol.LinearSegmentedColormap.from_list("", ["blue", 'violet', "red"])
 
-            Q = grid[0].quiver(x, y, Umean, Vmean, pyth_matrix, scale_units='dots', scale=2, width=.007, clim=[0, 50],
+            Q = grid[0].quiver(x, y, Umean, Vmean*-1, pyth_matrix, scale_units='dots', scale=2, width=.007, clim=[0, 50],
                                cmap=cmap)
 
             grid[0].axis('off')
@@ -618,10 +623,10 @@ def run_gui():
 
             results.append(speed_matrix_out)
             results.append(degrees)
-            results.append(Umean)
-            results.append(Vmean)
+            results.append(np.flip(Umean,1))
+            results.append(np.flip(Vmean,1))
 
-            analysis = [mi.I, mi.p_norm, np.mean(pyth_matrix), np.std(pyth_matrix),np.mean(pyth_matrix)*mi.I]
+            analysis = [mi.I, mi.p_norm, np.mean(pyth_matrix), np.std(pyth_matrix)]
 
             results.append(analysis)
             results.append(rowby_x)
@@ -663,7 +668,6 @@ def run_gui():
             writer.writerow(["The Morans index associated P value = ", results[4][1]])
             writer.writerow(["The average movement speed = ", results[4][2]])
             writer.writerow(["The standard deviation of the movement speed = ", results[4][3]])
-            writer.writerow(["The score = ", results[4][4]])
 
     def piv_display():
         """
@@ -714,26 +718,22 @@ def run_gui():
         moransPvalue_label = tk.Label(morans_window, text="P value")
         avgSpeed_label = tk.Label(morans_window, text="Average movement speed")
         sdSpeed_label = tk.Label(morans_window, text="STD movement speed")
-        speed_morans_label = tk.Label(morans_window, text="Final score")
 
         moransIndex = tk.Label(morans_window, text=str(round(analysis[0],3)))
         moransPvalue = tk.Label(morans_window, text=str(format(analysis[1],'.3g')))
         avgSpeed = tk.Label(morans_window, text=str(round(analysis[2],3)))
         sdSpeed = tk.Label(morans_window, text=str(round(analysis[3],3)))
-        speed_morans = tk.Label(morans_window, text=str(round(analysis[4],3)))
 
         moransIndex_label.grid(row=0, column=0, padx=2, pady=5)
         moransPvalue_label.grid(row=1, column=0, padx=2, pady=5)
         avgSpeed_label.grid(row=2,column=0,padx=2,pady=5)
         sdSpeed_label.grid(row=3,column=0,padx=2,pady=5)
-        speed_morans_label.grid(row=4,column=0,padx=2,pady=5)
 
 
         moransIndex.grid(row=0, column=1, padx=2, pady=5)
         moransPvalue.grid(row=1, column=1, padx=2, pady=5)
         avgSpeed.grid(row=2,column=1,padx=2,pady=5)
         sdSpeed.grid(row=3,column=1,padx=2,pady=5)
-        speed_morans.grid(row=4,column=1,padx=2,pady=5)
 
 
         submit_button = tk.Button(morans_window, text='OK', command=submit)
@@ -874,15 +874,16 @@ def corr_2d(a, v, Umean, Vmean):
     """
     U_avg = np.mean(Umean)
     V_avg = np.mean(Vmean)
-    full_avg = (U_avg + V_avg) / 2
+    UV_var = np.var(Umean+Vmean)
+    v_ = np.array([U_avg,V_avg])
     temp = []
     for i in range(len(a) // 2):
         ai = a[i:]
         vi = v[:len(ai)]
-        som = np.sum((ai - full_avg) * (vi - full_avg), axis=1)
+        som = np.sum(((ai - v_)/UV_var) * ((vi - v_)), axis=1)
         temp.append(np.mean(som))
-
     return temp
+
 
 def mandatory_value_check(top_window,*inputs):
 

@@ -644,10 +644,14 @@ def run_gui():
 
 
     def regenerate_quiver_plot(scale):
+        global piv_canvas
+        global toolbar
         global quiver_y
         global quiver_x
         global Vmean
         global Umean
+        piv_canvas.get_tk_widget().destroy()
+        toolbar.destroy()
 
         fig, ax = plt.subplots()
         grid = ImageGrid(fig, 111,
@@ -761,16 +765,20 @@ def run_gui():
         global piv_canvas
         global toolbar
         if piv_canvas != None and piv_check.get():
-
-            display_right.lower()
+            # display_right.lower()
+            # display_right.grid_remove()
             toolbar.grid()
+            piv_canvas.get_tk_widget().grid()
+
             button_save_matrix.grid()
             button_moran_index.grid()
             button_regenerate_plot.grid()
 
         elif piv_canvas != None and not piv_check.get():
-            display_right.lift()
+            # display_right.grid()
             toolbar.grid_remove()
+            piv_canvas.get_tk_widget().grid_remove()
+
             button_save_matrix.grid_remove()
             button_moran_index.grid_remove()
             button_regenerate_plot.grid_remove()

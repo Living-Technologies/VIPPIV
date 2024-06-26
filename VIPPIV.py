@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import copy
 from mpl_toolkits.axes_grid1 import ImageGrid
-import ctypes
 import screeninfo
 import matplotlib.colors as mcol
 from libpysal.weights import lat2W
 from esda.moran import Moran
+from aicspylibczi import CziFile
 
 # Enable this when compiling for windows
 # ctypes.windll.shcore.SetProcessDpiAwareness(2)
@@ -32,6 +32,8 @@ toolbar = None
 results = []
 Vmean = None
 Umean = None
+quiver_x = None
+quiver_y = None
 first_run = True
 
 
@@ -111,15 +113,23 @@ def run_gui():
         if video_name != '':
 
             frames = []
-            cap = cv2.VideoCapture(video_name)
-            succes = True
-            j = 0
-            while succes:
-                succes, image1 = cap.read()
-                if succes:
-                    image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
-                    frames.append(image1)
-                    j += 1
+            if video_name.endswith('.mp4') or video_name.endswith('.avi'):
+                cap = cv2.VideoCapture(video_name)
+                succes = True
+                j = 0
+                while succes:
+                    succes, image1 = cap.read()
+                    if succes:
+                        image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
+                        frames.append(image1)
+                        j += 1
+            elif video_name.endswith('.czi'):
+                czi_stack = CziFile(video_name)
+                n_frames = czi_stack.get_dims_shape()[0]['T'][1]
+                for i in range(n_frames):
+                    frame = np.squeeze(czi_stack.read_image(T=i, C=0, S=0)[0]).astype(np.float32)
+                    frame = ((frame - np.min(frame)) / (np.max(frame) - np.min(frame)) * 255).astype(np.uint8)
+                    frames.append(frame)
 
             loaded_file = True
             if not first_run:
@@ -128,6 +138,7 @@ def run_gui():
                 toolbar.grid_remove()
                 cb.grid_remove()
                 button_moran_index.grid_remove()
+                button_regenerate_plot.grid_remove()
 
             frame_index = 0
             video_stream(frames[frame_index])
@@ -494,6 +505,8 @@ def run_gui():
         global results
         global Vmean
         global Umean
+        global quiver_x
+        global quiver_y
         results = []
         var_threshold = 100
         for key, value in actions.items():
@@ -531,7 +544,7 @@ def run_gui():
                     u, v, s2n = pyprocess.extended_search_area_piv(image1.sum(axis=2),
                                                                    image2.sum(axis=2), window_size=win_size,
                                                                    overlap=overlap, dt=1)
-                    x, y = pyprocess.get_coordinates(image1.shape[:2], search_area_size=win_size,
+                    quiver_x, quiver_y = pyprocess.get_coordinates(image1.shape[:2], search_area_size=win_size,
                                                      overlap=overlap)
 
                     U.append(u)
@@ -550,9 +563,6 @@ def run_gui():
             V = np.nan_to_num(V)
             Vmean = np.mean(V, axis=0)
 
-
-
-
             fig, ax = plt.subplots()
             grid = ImageGrid(fig, 111,
                              nrows_ncols=(1, 1),
@@ -567,7 +577,7 @@ def run_gui():
             # Vmean = np.flip(Vmean, [0])
             #
             # x = np.flip(x, [1])
-            y = np.flip(y, [0])
+            quiver_y = np.flip(quiver_y, [0])
 
             pyth_matrix = np.sqrt(Umean ** 2 + Vmean ** 2)
             # Vmean[pyth_matrix < 1] = 0
@@ -576,7 +586,7 @@ def run_gui():
 
             cmap = mcol.LinearSegmentedColormap.from_list("", ["blue", 'violet', "red"])
 
-            Q = grid[0].quiver(x, y, Umean, Vmean*-1, pyth_matrix, scale_units='dots', scale=2, width=.007, clim=[0, 50],
+            Q = grid[0].quiver(quiver_x, quiver_y, Umean, Vmean*-1, pyth_matrix, scale_units='dots', scale=2, width=.007, clim=[0, 50],
                                cmap=cmap)
 
             grid[0].axis('off')
@@ -598,6 +608,7 @@ def run_gui():
             cb.grid()
             button_save_matrix.grid()
             button_moran_index.grid()
+            button_regenerate_plot.grid()
 
             speed_matrix_out = np.flip(pyth_matrix, 1)
 
@@ -631,6 +642,77 @@ def run_gui():
             results.append(analysis)
             results.append(rowby_x)
 
+
+    def regenerate_quiver_plot(scale):
+        global quiver_y
+        global quiver_x
+        global Vmean
+        global Umean
+
+        fig, ax = plt.subplots()
+        grid = ImageGrid(fig, 111,
+                         nrows_ncols=(1, 1),
+                         axes_pad=0.05,
+                         cbar_location="right",
+                         cbar_mode="single",
+                         cbar_size="5%",
+                         cbar_pad=0.05
+                         )
+
+        cmap = mcol.LinearSegmentedColormap.from_list("", ["blue", 'violet', "red"])
+
+        pyth_matrix = np.sqrt(Umean ** 2 + Vmean ** 2)
+
+        Q = grid[0].quiver(quiver_x, quiver_y, Umean, Vmean * -1, pyth_matrix, scale_units='dots', scale=scale, width=.007,
+                           clim=[0, 50],
+                           cmap=cmap)
+        grid[0].axis('off')
+
+        cbar = plt.colorbar(Q, cax=grid.cbar_axes[0])
+
+        cbar.set_ticks(ticks=[0, 50], labels=['0', '50'])
+
+        piv_canvas = FigureCanvasTkAgg(fig, master=window)
+        piv_canvas.draw()
+        piv_canvas.get_tk_widget().grid(row=4, column=5, padx=10, pady=10)
+        toolbar = NavigationToolbar2Tk(piv_canvas, window, pack_toolbar=False)
+        toolbar.update()
+        toolbar.grid(row=6, column=5, padx=2, pady=5)
+        cb.select()
+        plt.close()
+
+    def regenerate_plot_window():
+        """
+        When the user presses the erosion preprocessing button this function calles a subwindow asking for settings for
+        the erosion operation. These settings are then stored and displayed in the center of the GUI
+        :return:
+        """
+        if len(frames) != 0:
+            global actions_index
+            global actions
+
+            def submit():
+                    input_scale = scale_entry.get()
+                    plot_window.destroy()
+                    regenerate_quiver_plot(float(input_scale))
+
+            plot_window = Toplevel(window)
+            x = window.winfo_x()
+            y = window.winfo_y()
+            plot_window.geometry("+%d+%d" % (x, y))
+            plot_window.transient(window)
+            plot_window.grab_set()
+
+            label_rows = tk.Label(plot_window, text="quiver scale")
+
+            default_scale = tk.StringVar(plot_window, value="2")
+            scale_entry = tk.Entry(plot_window, textvariable=default_scale)
+
+            scale_entry.grid(row=0, column=2, padx=2, pady=5)
+
+            label_rows.grid(row=0, column=0, padx=2, pady=5)
+            submit_button = tk.Button(plot_window, text='Submit', command=submit)
+            submit_button.grid()
     def save_matrices():
         """
         This function is called when the user wants to save the results that make up the vectorfield plot.
@@ -684,12 +766,14 @@ def run_gui():
             toolbar.grid()
             button_save_matrix.grid()
             button_moran_index.grid()
+            button_regenerate_plot.grid()
 
         elif piv_canvas != None and not piv_check.get():
             display_right.lift()
             toolbar.grid_remove()
             button_save_matrix.grid_remove()
             button_moran_index.grid_remove()
+            button_regenerate_plot.grid_remove()
 
     def Morans_I():
         """
@@ -774,6 +858,7 @@ def run_gui():
     button_save_manual = tk.Button(text='Save manual changes', width=20, command=save_manual_changes)
     button_save_matrix = tk.Button(text='Save arrow information', width=20, command=save_matrices)
     button_moran_index = tk.Button(text='Calculate Morans Index', width=20, command=Morans_I)
+    button_regenerate_plot = tk.Button(text='regenerate_plot',width=20,command=regenerate_plot_window)
     piv_check = tk.IntVar()
 
     cb = tk.Checkbutton(window, text="Show PIV", variable=piv_check, command=piv_display)
@@ -798,6 +883,8 @@ def run_gui():
     button_moran_index.grid(row=3, column=5, padx=2, pady=5)
     button_moran_index.grid_remove()
     button_save_matrix.grid_remove()
+    button_regenerate_plot.grid(row=1,column=5, padx=2, pady=5)
+    button_regenerate_plot.grid_remove()
     cb.grid(row=2, column=5, padx=2, pady=5)
     cb.grid_remove()
 

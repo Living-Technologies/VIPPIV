@@ -135,10 +135,11 @@ def run_gui():
             if not first_run:
                 display_right.lift()
                 piv_canvas.get_tk_widget().destroy()
-                toolbar.grid_remove()
+                toolbar.destroy()
                 cb.grid_remove()
                 button_moran_index.grid_remove()
                 button_regenerate_plot.grid_remove()
+                button_save_matrix.grid_remove()
 
             frame_index = 0
             video_stream(frames[frame_index])
